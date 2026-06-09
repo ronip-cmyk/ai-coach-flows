@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI Coach — Figma Flows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#7c57fd;
+    --secondary-container:#e5ddff;
+    --surface:#fafafa;
+    --on-surface:#3d3d3d;
+    --on-surface-variant:#666666;
+    --type3:#ababab;
+    --heading:#2f2b56;
+    --card-shadow:0 3px 12px rgba(0,0,0,.10);
+  }
+  html,body{margin:0;padding:0;background:#0e0e10;min-height:100vh;font-family:'Inter',system-ui,sans-serif;color:#fff;-webkit-font-smoothing:antialiased;}
+  #root{min-height:100vh;display:flex;align-items:center;justify-content:center;gap:40px;padding:40px 20px;box-sizing:border-box;}
+  body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse at 25% 20%,rgba(124,87,253,.20)0%,transparent 55%),#0e0e10;}
+  button{font-family:inherit;cursor:pointer;}
+  *{box-sizing:border-box;}
+  ::-webkit-scrollbar{width:0;height:0;}
+</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script type="text/babel" src="coach-flow.jsx?v=1"></script>
+</body>
+</html>

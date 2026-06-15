@@ -248,24 +248,64 @@ function Thinking() {
 const stripThinking = arr => { const a = [...(arr || [])]; while (a.length && a[a.length - 1].role === 'thinking') a.pop(); return a; };
 const SpeechRec = (typeof window !== 'undefined') && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
+/* ---------------------------------------------------- on-screen iOS keyboard */
+const KB = { bg: '#2c2c2e', key: '#6d6d71', fn: '#454548' };
+const kbKeyBase = (extra) => ({ height: 42, borderRadius: 6, border: 'none', color: '#fff', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 0 rgba(0,0,0,.4)', cursor: 'pointer', padding: 0, ...extra });
+const shiftGlyph = (active) => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 8h-4.5v7h-7v-7H4z" fill={active ? '#111' : 'none'} stroke={active ? '#111' : '#fff'} strokeWidth="1.7" strokeLinejoin="round" /></svg>);
+const backspaceGlyph = (<svg width="25" height="20" viewBox="0 0 26 20" fill="none"><path d="M8 2h15a1 1 0 011 1v14a1 1 0 01-1 1H8L1 10z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /><path d="M12 7l6 6M18 7l-6 6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" /></svg>);
+const emojiGlyph = (<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#fff" strokeWidth="1.5" /><circle cx="9" cy="10.5" r="1" fill="#fff" /><circle cx="15" cy="10.5" r="1" fill="#fff" /><path d="M8.5 14a4 4 0 007 0" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" /></svg>);
+const kbMicGlyph = (<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="#fff" strokeWidth="1.7" /><path d="M5 11a7 7 0 0014 0M12 18v3" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" /></svg>);
+
+function Letter({ k, onChar }) {
+  return <button onMouseDown={e => e.preventDefault()} onClick={() => onChar(k)} style={kbKeyBase({ flex: 1, margin: '0 3px', background: KB.key, fontSize: 18 })}>{k}</button>;
+}
+function IosKeyboard({ onChar, onBackspace, onSpace, onReturn, onMic, shift, onShift, listening }) {
+  const row = { display: 'flex', justifyContent: 'center', padding: '0 3px', marginBottom: 9 };
+  const fn = (extra) => kbKeyBase({ background: KB.fn, margin: '0 3px', ...extra });
+  return (
+    <div style={{ background: KB.bg, padding: '9px 2px 6px' }}>
+      <div style={row}>{'QWERTYUIOP'.split('').map(k => <Letter key={k} k={k} onChar={onChar} />)}</div>
+      <div style={{ ...row, padding: '0 21px' }}>{'ASDFGHJKL'.split('').map(k => <Letter key={k} k={k} onChar={onChar} />)}</div>
+      <div style={row}>
+        <button onMouseDown={e => e.preventDefault()} onClick={onShift} style={fn({ flex: 1.5, background: shift ? '#e9e9ec' : KB.fn })}>{shiftGlyph(shift)}</button>
+        {'ZXCVBNM'.split('').map(k => <Letter key={k} k={k} onChar={onChar} />)}
+        <button onMouseDown={e => e.preventDefault()} onClick={onBackspace} style={fn({ flex: 1.5 })}>{backspaceGlyph}</button>
+      </div>
+      <div style={{ ...row, marginBottom: 0 }}>
+        <button onMouseDown={e => e.preventDefault()} style={fn({ flex: 1.4, fontSize: 15 })}>123</button>
+        <button onMouseDown={e => e.preventDefault()} style={fn({ flex: 1 })}>{emojiGlyph}</button>
+        <button onMouseDown={e => e.preventDefault()} onClick={onMic} aria-label="Dictate" style={fn({ flex: 1, background: listening ? C.primary : KB.fn, animation: listening ? 'micPulse 1.4s infinite' : 'none' })}>{kbMicGlyph}</button>
+        <button onMouseDown={e => e.preventDefault()} onClick={onSpace} style={kbKeyBase({ flex: 5, margin: '0 3px', background: KB.key, fontSize: 15 })}>space</button>
+        <button onMouseDown={e => e.preventDefault()} onClick={onReturn} style={fn({ flex: 2, fontSize: 15 })}>return</button>
+      </div>
+    </div>
+  );
+}
+
+function RecWave() {
+  return (
+    <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center', height: 16 }}>
+      {[0, 1, 2, 3, 4].map(i => <span key={i} style={{ width: 3, height: 14, borderRadius: 2, background: C.primary, transformOrigin: 'center', animation: `recWave 1s ${i * 0.12}s infinite ease-in-out` }} />)}
+    </span>
+  );
+}
+
 function InputBar({ onSend }) {
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
+  const [kbOpen, setKbOpen] = useState(false);
+  const [shift, setShift] = useState(true);
   const recRef = useRef(null);
   const baseRef = useRef('');
 
   useEffect(() => () => { if (recRef.current) { try { recRef.current.abort(); } catch (e) {} } }, []);
 
+  function stopListening() { try { recRef.current && recRef.current.stop(); } catch (e) {} }
   function toggleMic() {
-    if (!SpeechRec) {
-      alert("Voice input isn't supported in this browser — try Chrome, Edge, or Safari.");
-      return;
-    }
-    if (listening) { try { recRef.current && recRef.current.stop(); } catch (e) {} return; }
+    if (!SpeechRec) { alert("Voice input isn't supported in this browser — try Chrome, Edge, or Safari."); return; }
+    if (listening) { stopListening(); return; }
     const rec = new SpeechRec();
-    rec.lang = 'en-US';
-    rec.interimResults = true;
-    rec.continuous = false;
+    rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = true;
     baseRef.current = text ? text + ' ' : '';
     rec.onresult = (e) => {
       let interim = '', finals = '';
@@ -279,34 +319,58 @@ function InputBar({ onSend }) {
     rec.onend = () => setListening(false);
     rec.onerror = () => setListening(false);
     recRef.current = rec;
-    setListening(true);
+    setKbOpen(true); setListening(true);
     try { rec.start(); } catch (e) { setListening(false); }
   }
 
+  function onChar(ch) { setText(t => t + (shift ? ch : ch.toLowerCase())); if (shift) setShift(false); }
   function send() {
     const t = text.trim();
     if (!t) return;
-    if (listening) { try { recRef.current && recRef.current.stop(); } catch (e) {} }
+    if (listening) stopListening();
     onSend && onSend(t);
-    setText('');
+    setText(''); setKbOpen(false); setShift(true);
   }
+  function dismiss() { if (listening) stopListening(); setKbOpen(false); }
 
-  const hasText = text.trim().length > 0;
+  // icon mapping mirrors the Figma states:
+  //  default (keyboard closed) → mic · typing (keyboard open) → send · dictating → mic (recording)
+  const showSend = kbOpen && !listening;
+  const circle = (bg) => ({ width: 46, height: 46, borderRadius: '50%', background: bg, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 });
+
   return (
-    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '10px 14px 26px', display: 'flex', alignItems: 'center', gap: 10, background: 'linear-gradient(180deg,rgba(255,255,255,0)0%,#ffffff 38%)' }}>
-      <div style={{ flex: 1, background: '#fff', borderRadius: 999, boxShadow: listening ? '0 0 0 2px rgba(124,87,253,.55), 0 2px 10px rgba(33,21,55,.10)' : '0 2px 10px rgba(33,21,55,.10)', padding: '6px 18px', display: 'flex', alignItems: 'center', transition: 'box-shadow .2s' }}>
-        <input
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') send(); }}
-          placeholder={listening ? 'Listening…' : 'Ask the coach'}
-          style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 15, color: '#2b2b33', fontFamily: 'inherit', padding: '7px 0' }}
-        />
+    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
+      {kbOpen && <div onClick={dismiss} style={{ position: 'absolute', left: 0, right: 0, bottom: '100%', height: 900, background: 'transparent' }} />}
+
+      {/* recording indicator — tells the user we're capturing, and how to stop */}
+      {listening && (
+        <button onClick={stopListening} style={{ width: '100%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '11px 18px', background: '#f1ecff', borderTop: '1px solid rgba(124,87,253,.18)' }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#ff3b30', animation: 'recDot 1.2s infinite' }} />
+          <RecWave />
+          <span style={{ fontSize: 14, fontWeight: 600, color: C.heading }}>Listening… tap to stop</span>
+        </button>
+      )}
+
+      {/* input row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: kbOpen ? '#ece9f7' : 'linear-gradient(180deg,rgba(255,255,255,0)0%,#ffffff 40%)', paddingBottom: kbOpen ? 12 : 26 }}>
+        <div style={{ flex: 1, minWidth: 0, background: '#fff', borderRadius: 999, boxShadow: listening ? '0 0 0 2px rgba(124,87,253,.55), 0 2px 10px rgba(33,21,55,.10)' : '0 2px 10px rgba(33,21,55,.10)', padding: '6px 18px', display: 'flex', alignItems: 'center', transition: 'box-shadow .2s' }}>
+          <input
+            value={text}
+            inputMode="none"
+            onChange={e => setText(e.target.value)}
+            onFocus={() => setKbOpen(true)}
+            onMouseDown={() => setKbOpen(true)}
+            onKeyDown={e => { if (e.key === 'Enter') send(); }}
+            placeholder={listening ? 'Listening…' : 'Ask the coach'}
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 15, color: '#2b2b33', fontFamily: 'inherit', padding: '7px 0' }}
+          />
+        </div>
+        {showSend
+          ? <button onClick={send} aria-label="Send" style={circle(C.primary)}>{Ico.send()}</button>
+          : <button onClick={toggleMic} aria-label="Voice input" title="Tap to speak" style={{ ...circle(listening ? C.primary : '#fff'), boxShadow: listening ? 'none' : '0 2px 10px rgba(33,21,55,.10)', animation: listening ? 'micPulse 1.4s infinite' : 'none' }}>{Ico.mic(listening ? '#fff' : C.primary)}</button>}
       </div>
-      {/* adaptive button: send when there's text (and not listening), otherwise mic */}
-      {hasText && !listening
-        ? <button onClick={send} aria-label="Send" style={{ width: 46, height: 46, borderRadius: '50%', background: C.primary, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{Ico.send()}</button>
-        : <button onClick={toggleMic} aria-label="Voice input" title="Tap to speak" style={{ width: 46, height: 46, borderRadius: '50%', border: 'none', cursor: 'pointer', background: listening ? C.primary : '#fff', boxShadow: listening ? 'none' : '0 2px 10px rgba(33,21,55,.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animation: listening ? 'micPulse 1.4s infinite' : 'none' }}>{Ico.mic(listening ? '#fff' : C.primary)}</button>}
+
+      {kbOpen && <IosKeyboard onChar={onChar} onBackspace={() => setText(t => t.slice(0, -1))} onSpace={() => setText(t => t + ' ')} onReturn={send} onMic={toggleMic} shift={shift} onShift={() => setShift(s => !s)} listening={listening} />}
     </div>
   );
 }
@@ -495,7 +559,7 @@ function App() {
 
   return (
     <React.Fragment>
-      <style>{`@keyframes coachDot{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-4px);opacity:1}}@keyframes coachFade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}@keyframes micPulse{0%{box-shadow:0 0 0 0 rgba(124,87,253,.45)}70%{box-shadow:0 0 0 8px rgba(124,87,253,0)}100%{box-shadow:0 0 0 0 rgba(124,87,253,0)}}`}</style>
+      <style>{`@keyframes coachDot{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-4px);opacity:1}}@keyframes coachFade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}@keyframes micPulse{0%{box-shadow:0 0 0 0 rgba(124,87,253,.45)}70%{box-shadow:0 0 0 8px rgba(124,87,253,0)}100%{box-shadow:0 0 0 0 rgba(124,87,253,0)}}@keyframes recWave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}@keyframes recDot{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
       {/* phone frame */}
       <div style={{ width: 375, height: 812, borderRadius: 44, background: '#fff', boxShadow: '0 30px 80px rgba(0,0,0,.5)', position: 'relative', overflow: 'hidden', flexShrink: 0, border: '6px solid #111' }}>
         <div key={phoneKey} style={{ position: 'absolute', inset: 0 }}>{screen}</div>

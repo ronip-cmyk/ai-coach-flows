@@ -245,14 +245,67 @@ function Thinking() {
   );
 }
 
-function InputBar() {
+const stripThinking = arr => { const a = [...(arr || [])]; while (a.length && a[a.length - 1].role === 'thinking') a.pop(); return a; };
+const SpeechRec = (typeof window !== 'undefined') && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+function InputBar({ onSend }) {
+  const [text, setText] = useState('');
+  const [listening, setListening] = useState(false);
+  const recRef = useRef(null);
+  const baseRef = useRef('');
+
+  useEffect(() => () => { if (recRef.current) { try { recRef.current.abort(); } catch (e) {} } }, []);
+
+  function toggleMic() {
+    if (!SpeechRec) {
+      alert("Voice input isn't supported in this browser — try Chrome, Edge, or Safari.");
+      return;
+    }
+    if (listening) { try { recRef.current && recRef.current.stop(); } catch (e) {} return; }
+    const rec = new SpeechRec();
+    rec.lang = 'en-US';
+    rec.interimResults = true;
+    rec.continuous = false;
+    baseRef.current = text ? text + ' ' : '';
+    rec.onresult = (e) => {
+      let interim = '', finals = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finals += r[0].transcript; else interim += r[0].transcript;
+      }
+      if (finals) baseRef.current += finals;
+      setText((baseRef.current + interim).replace(/\s+/g, ' ').trimStart());
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    recRef.current = rec;
+    setListening(true);
+    try { rec.start(); } catch (e) { setListening(false); }
+  }
+
+  function send() {
+    const t = text.trim();
+    if (!t) return;
+    if (listening) { try { recRef.current && recRef.current.stop(); } catch (e) {} }
+    onSend && onSend(t);
+    setText('');
+  }
+
   return (
     <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '10px 14px 26px', display: 'flex', alignItems: 'center', gap: 10, background: 'linear-gradient(180deg,rgba(255,255,255,0)0%,#ffffff 38%)' }}>
-      <div style={{ flex: 1, background: '#fff', borderRadius: 999, boxShadow: '0 2px 10px rgba(33,21,55,.10)', padding: '13px 18px', display: 'flex', alignItems: 'center' }}>
-        <span style={{ fontSize: 15, color: '#9a9aa6' }}>Ask the coach</span>
-        <span style={{ marginLeft: 'auto' }}>{Ico.mic()}</span>
+      <div style={{ flex: 1, background: '#fff', borderRadius: 999, boxShadow: listening ? '0 0 0 2px rgba(124,87,253,.55), 0 2px 10px rgba(33,21,55,.10)' : '0 2px 10px rgba(33,21,55,.10)', padding: '6px 8px 6px 18px', display: 'flex', alignItems: 'center', transition: 'box-shadow .2s' }}>
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') send(); }}
+          placeholder={listening ? 'Listening…' : 'Ask the coach'}
+          style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 15, color: '#2b2b33', fontFamily: 'inherit' }}
+        />
+        <button onClick={toggleMic} aria-label="Voice input" title="Tap to speak" style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer', background: listening ? C.primary : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animation: listening ? 'micPulse 1.4s infinite' : 'none' }}>
+          {Ico.mic(listening ? '#fff' : '#3d3d3d')}
+        </button>
       </div>
-      <button style={{ width: 46, height: 46, borderRadius: '50%', background: C.primary, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{Ico.send()}</button>
+      <button onClick={send} aria-label="Send" style={{ width: 46, height: 46, borderRadius: '50%', background: C.primary, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{Ico.send()}</button>
     </div>
   );
 }
@@ -330,12 +383,17 @@ function CoachActive({ onBack }) {
     }
   }
 
+  function onSend(t) {
+    setTurns(prev => [...stripThinking(prev), { role: 'user', text: t }, { role: 'thinking' }]);
+    setRev(r => r + 1);
+  }
+
   return (
     <div style={{ position: 'absolute', inset: 0, background: SCREEN_BG, display: 'flex', flexDirection: 'column' }}>
       <StatusBar />
       <CoachHeader onBack={onBack} showAvatar />
       <CoachThread turns={turns} onChip={onChip} anchorKey={rev} />
-      <InputBar />
+      <InputBar onSend={onSend} />
     </div>
   );
 }
@@ -367,13 +425,18 @@ function CoachFresh({ onBack }) {
     }
   }
 
+  function onSend(t) {
+    setThread(prev => [...stripThinking(prev), { role: 'user', text: t }, { role: 'thinking' }]);
+    setRev(r => r + 1);
+  }
+
   if (thread) {
     return (
       <div style={{ position: 'absolute', inset: 0, background: SCREEN_BG, display: 'flex', flexDirection: 'column' }}>
         <StatusBar />
         <CoachHeader onBack={onBack} showAvatar />
         <CoachThread turns={thread} onChip={onChip} anchorKey={rev} />
-        <InputBar />
+        <InputBar onSend={onSend} />
       </div>
     );
   }
@@ -402,7 +465,7 @@ function CoachFresh({ onBack }) {
           ))}
         </div>
       </div>
-      <InputBar />
+      <InputBar onSend={onSend} />
     </div>
   );
 }
@@ -431,7 +494,7 @@ function App() {
 
   return (
     <React.Fragment>
-      <style>{`@keyframes coachDot{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-4px);opacity:1}}@keyframes coachFade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <style>{`@keyframes coachDot{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-4px);opacity:1}}@keyframes coachFade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}@keyframes micPulse{0%{box-shadow:0 0 0 0 rgba(124,87,253,.45)}70%{box-shadow:0 0 0 8px rgba(124,87,253,0)}100%{box-shadow:0 0 0 0 rgba(124,87,253,0)}}`}</style>
       {/* phone frame */}
       <div style={{ width: 375, height: 812, borderRadius: 44, background: '#fff', boxShadow: '0 30px 80px rgba(0,0,0,.5)', position: 'relative', overflow: 'hidden', flexShrink: 0, border: '6px solid #111' }}>
         <div key={phoneKey} style={{ position: 'absolute', inset: 0 }}>{screen}</div>

@@ -291,21 +291,22 @@ function InputBar({ onSend }) {
     setText('');
   }
 
+  const hasText = text.trim().length > 0;
   return (
     <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '10px 14px 26px', display: 'flex', alignItems: 'center', gap: 10, background: 'linear-gradient(180deg,rgba(255,255,255,0)0%,#ffffff 38%)' }}>
-      <div style={{ flex: 1, background: '#fff', borderRadius: 999, boxShadow: listening ? '0 0 0 2px rgba(124,87,253,.55), 0 2px 10px rgba(33,21,55,.10)' : '0 2px 10px rgba(33,21,55,.10)', padding: '6px 8px 6px 18px', display: 'flex', alignItems: 'center', transition: 'box-shadow .2s' }}>
+      <div style={{ flex: 1, background: '#fff', borderRadius: 999, boxShadow: listening ? '0 0 0 2px rgba(124,87,253,.55), 0 2px 10px rgba(33,21,55,.10)' : '0 2px 10px rgba(33,21,55,.10)', padding: '6px 18px', display: 'flex', alignItems: 'center', transition: 'box-shadow .2s' }}>
         <input
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') send(); }}
           placeholder={listening ? 'Listening…' : 'Ask the coach'}
-          style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 15, color: '#2b2b33', fontFamily: 'inherit' }}
+          style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 15, color: '#2b2b33', fontFamily: 'inherit', padding: '7px 0' }}
         />
-        <button onClick={toggleMic} aria-label="Voice input" title="Tap to speak" style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer', background: listening ? C.primary : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animation: listening ? 'micPulse 1.4s infinite' : 'none' }}>
-          {Ico.mic(listening ? '#fff' : '#3d3d3d')}
-        </button>
       </div>
-      <button onClick={send} aria-label="Send" style={{ width: 46, height: 46, borderRadius: '50%', background: C.primary, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{Ico.send()}</button>
+      {/* adaptive button: send when there's text (and not listening), otherwise mic */}
+      {hasText && !listening
+        ? <button onClick={send} aria-label="Send" style={{ width: 46, height: 46, borderRadius: '50%', background: C.primary, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{Ico.send()}</button>
+        : <button onClick={toggleMic} aria-label="Voice input" title="Tap to speak" style={{ width: 46, height: 46, borderRadius: '50%', border: 'none', cursor: 'pointer', background: listening ? C.primary : '#fff', boxShadow: listening ? 'none' : '0 2px 10px rgba(33,21,55,.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animation: listening ? 'micPulse 1.4s infinite' : 'none' }}>{Ico.mic(listening ? '#fff' : C.primary)}</button>}
     </div>
   );
 }
